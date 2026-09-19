@@ -345,10 +345,12 @@
 
         async function fetchDadosAppsScript() {
             try {
-                const response = await fetch(API_URL, {
+                // Usar proxy de CORS
+                const proxyUrl = 'https://cors-anywhere.herokuapp.com/';
+                const urlComProxy = proxyUrl + API_URL;
+
+                const response = await fetch(urlComProxy, {
                     method: 'GET',
-                    mode: 'cors',
-                    credentials: 'omit',
                     headers: {
                         'Accept': 'application/json'
                     }
