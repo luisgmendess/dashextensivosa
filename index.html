@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard de Presença - Cursos Extensivos</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header-info h1 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .header-info p {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .status-sync {
+            text-align: right;
+            font-size: 13px;
+            color: #666;
+        }
+
+        .status-dot {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 5px;
+            animation: pulse 2s infinite;
+        }
+
+        .status-dot.online {
+            background: #4CAF50;
+        }
+
+        .status-dot.loading {
+            background: #FFC107;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: white;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .kpi {
+            text-align: center;
+        }
+
+        .kpi-valor {
+            font-size: 32px;
+            font-weight: bold;
+            color: #667eea;
+            margin: 10px 0;
+        }
+
+        .kpi-label {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .chart-container {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+            position: relative;
+            height: 400px;
+        }
+
+        .chart-container h3 {
+            margin-bottom: 20px;
+            color: #333;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            background: white;
+            padding: 10px;
+            border-radius: 10px;
+            flex-wrap: wrap;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .tab-btn {
+            padding: 10px 20px;
+            border: 2px solid #ddd;
+            background: white;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: 500;
+        }
+
+        .tab-btn.active {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+
+        .tab-btn:hover {
+            border-color: #667eea;
+        }
+
+        .table-container {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th {
+            background: #f5f5f5;
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+            color: #333;
+            border-bottom: 2px solid #ddd;
+        }
+
+        td {
+            padding: 12px;
+            border-bottom: 1px solid #eee;
+        }
+
+        tr:hover {
+            background: #f9f9f9;
+        }
+
+        .status-alert {
+            background: #fff3cd;
+            color: #856404;
+            padding: 8px 12px;
+            border-radius: 5px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .status-ok {
+            background: #d4edda;
+            color: #155724;
+            padding: 8px 12px;
+            border-radius: 5px;
+            font-size: 12px;
+        }
+
+        .presenca { background: #90EE90; }
+        .justificada { background: #FFD700; }
+        .falta { background: #FFB6C6; }
+
+        .footer {
+            text-align: center;
+            color: white;
+            margin-top: 30px;
+            font-size: 12px;
+        }
+
+        #content { display: none; }
+        .loading-spinner { display: none; }
+
+        @media (max-width: 768px) {
+            .grid { grid-template-columns: 1fr; }
+            .header { flex-direction: column; gap: 20px; text-align: center; }
+            .status-sync { text-align: center; }
+        }
+
+        .error-message {
+            background: #ffebee;
+            color: #c62828;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="header-info">
+                <h1>📊 Dashboard de Presença</h1>
+                <p>Acompanhamento em tempo real das presenças - Cursos Extensivos</p>
+            </div>
+            <div class="status-sync">
+                <div id="sync-status">
+                    <span class="status-dot loading"></span>
+                    <span>Carregando...</span>
+                </div>
+                <div id="last-update" style="margin-top: 10px; font-size: 11px;"></div>
+            </div>
+        </div>
+
+        <div class="error-message" id="error-message"></div>
+
+        <div class="loading-spinner" id="loading-spinner">
+            <div class="loading">
+                Carregando dados da planilha em tempo real...
+            </div>
+        </div>
+
+        <div id="content">
+            <!-- KPIs -->
+            <div class="grid">
+                <div class="card kpi">
+                    <div class="kpi-label">Total de Alunos</div>
+                    <div class="kpi-valor" id="total-alunos">0</div>
+                </div>
+                <div class="card kpi">
+                    <div class="kpi-label">Presença Média</div>
+                    <div class="kpi-valor" id="presenca-media">0%</div>
+                </div>
+                <div class="card kpi">
+                    <div class="kpi-label">Alunos em Risco</div>
+                    <div class="kpi-valor" id="alunos-risco">0</div>
+                </div>
+                <div class="card kpi">
+                    <div class="kpi-label">Taxa Justificadas</div>
+                    <div class="kpi-valor" id="taxa-justificadas">0%</div>
+                </div>
+            </div>
+
+            <!-- Gráficos -->
+            <div class="chart-container">
+                <h3>Presença por Turma</h3>
+                <canvas id="chartTurmas"></canvas>
+            </div>
+
+            <div class="chart-container">
+                <h3>Distribuição de Presenças, Faltas e Justificativas</h3>
+                <canvas id="chartDistribuicao"></canvas>
+            </div>
+
+            <!-- Tabs de Turmas -->
+            <div class="tabs" id="tabs"></div>
+
+            <!-- Tabela -->
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Nome do Aluno</th>
+                            <th>Presença</th>
+                            <th>Justificadas</th>
+                            <th>Faltas</th>
+                            <th>Taxa</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbody-alunos">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p>Dashboard de Presença | Cursos Extensivos | Atualização Automática</p>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'https://script.google.com/macros/s/AKfycbzgCDvA1gbGROSoDwjk0I1yVvMiqxYYPJG7qrbLWlCc0sKECf-zWuCqLAN9nOqZT_AKSA/exec';
+        const ABAS = ['A1', 'A2', 'B1', 'C1', 'C2', 'D1'];
+
+        let todosOsDados = {};
+        let abaAtual = ABAS[0];
+        let chartTurmas = null;
+        let chartDistribuicao = null;
+
+        function mostrarErro(msg) {
+            const errorEl = document.getElementById('error-message');
+            errorEl.textContent = '❌ ' + msg;
+            errorEl.style.display = 'block';
+        }
+
+        function atualizarStatus(loading = false) {
+            const statusEl = document.getElementById('sync-status');
+            if (loading) {
+                statusEl.innerHTML = '<span class="status-dot loading"></span><span>Sincronizando...</span>';
+            } else {
+                statusEl.innerHTML = '<span class="status-dot online"></span><span>Sincronizado</span>';
+            }
+
+            const lastUpdate = document.getElementById('last-update');
+            lastUpdate.textContent = 'Última atualização: ' + new Date().toLocaleTimeString('pt-BR');
+        }
+
+        async function fetchDadosAppsScript() {
+            try {
+                const response = await fetch(API_URL, {
+                    method: 'GET',
+                    mode: 'cors',
+                    credentials: 'omit',
+                    headers: {
+                        'Accept': 'application/json'
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const text = await response.text();
+                console.log('Resposta do Apps Script recebida');
+
+                const dados = JSON.parse(text);
+                return dados;
+            } catch (error) {
+                console.error('Erro detalhado:', error);
+                mostrarErro(`Erro: ${error.message}. Verifique sua conexão de internet.`);
+                throw error;
+            }
+        }
+
+        function processarDados(valores) {
+            if (!valores || valores.length < 2) return [];
+
+            const alunos = [];
+            for (let i = 1; i < valores.length; i++) {
+                const linha = valores[i];
+                if (linha[0] && linha[0].trim()) {
+                    alunos.push({
+                        nome: linha[0].trim(),
+                        celular: (linha[1] || '').trim(),
+                        dataMatricula: (linha[2] || '').trim(),
+                        status: (linha[3] || 'Ativo').trim(),
+                        presenças: linha.slice(4).map(x => (x || '').trim().toUpperCase())
+                    });
+                }
+            }
+            return alunos;
+        }
+
+        async function carregarDados() {
+            atualizarStatus(true);
+            document.getElementById('loading-spinner').style.display = 'block';
+
+            try {
+                const dados = await fetchDadosAppsScript();
+
+                // Processar dados de cada aba
+                ABAS.forEach(aba => {
+                    if (dados[aba]) {
+                        todosOsDados[aba] = processarDados(dados[aba]);
+                    } else {
+                        todosOsDados[aba] = [];
+                    }
+                });
+
+                calcularKPIs();
+                criarGraficos();
+                criarTabs();
+                criarTabelaAlunos(todosOsDados[abaAtual]);
+
+                document.getElementById('content').style.display = 'block';
+                document.getElementById('loading-spinner').style.display = 'none';
+                atualizarStatus(false);
+
+            } catch (error) {
+                console.error('Erro:', error);
+                atualizarStatus(false);
+            }
+        }
+
+        function calcularEstatisticas(alunos) {
+            let totalPresencas = 0;
+            let totalJustificadas = 0;
+            let totalFaltas = 0;
+
+            alunos.forEach(aluno => {
+                (aluno.presenças || []).forEach(item => {
+                    if (item === 'P') totalPresencas++;
+                    else if (item === 'J') totalJustificadas++;
+                    else if (item === 'F') totalFaltas++;
+                });
+            });
+
+            return {
+                totalPresencas,
+                totalJustificadas,
+                totalFaltas,
+                total: totalPresencas + totalJustificadas + totalFaltas
+            };
+        }
+
+        function criarTabelaAlunos(alunos) {
+            const tbody = document.getElementById('tbody-alunos');
+            tbody.innerHTML = '';
+
+            if (!alunos || alunos.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 20px;">Nenhum aluno encontrado</td></tr>';
+                return;
+            }
+
+            alunos.forEach(aluno => {
+                const presencas = (aluno.presenças || []).filter(p => p === 'P').length;
+                const justificadas = (aluno.presenças || []).filter(p => p === 'J').length;
+                const faltas = (aluno.presenças || []).filter(p => p === 'F').length;
+                const total = presencas + justificadas + faltas;
+                const taxa = total > 0 ? ((presencas / total) * 100).toFixed(1) : 0;
+                const emRisco = taxa < 75;
+
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${aluno.nome}</td>
+                    <td><span class="presenca" style="padding: 4px 8px; border-radius: 3px;">${presencas}</span></td>
+                    <td><span class="justificada" style="padding: 4px 8px; border-radius: 3px;">${justificadas}</span></td>
+                    <td><span class="falta" style="padding: 4px 8px; border-radius: 3px;">${faltas}</span></td>
+                    <td><strong>${taxa}%</strong></td>
+                    <td>${emRisco ? '<span class="status-alert">⚠️ Em risco</span>' : '<span class="status-ok">✓ Ok</span>'}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function calcularKPIs() {
+            let totalAlunos = 0;
+            let totalPresencas = 0;
+            let totalJustificadas = 0;
+            let totalFaltas = 0;
+            let totalEmRisco = 0;
+
+            ABAS.forEach(aba => {
+                const alunos = todosOsDados[aba] || [];
+                totalAlunos += alunos.length;
+
+                alunos.forEach(aluno => {
+                    const p = (aluno.presenças || []).filter(x => x === 'P').length;
+                    const j = (aluno.presenças || []).filter(x => x === 'J').length;
+                    const f = (aluno.presenças || []).filter(x => x === 'F').length;
+                    const total = p + j + f;
+                    const taxa = total > 0 ? (p / total) * 100 : 0;
+
+                    totalPresencas += p;
+                    totalJustificadas += j;
+                    totalFaltas += f;
+
+                    if (taxa < 75) totalEmRisco++;
+                });
+            });
+
+            const totalRegistros = totalPresencas + totalJustificadas + totalFaltas;
+            const presenciaMedia = totalRegistros > 0 ? ((totalPresencas / totalRegistros) * 100).toFixed(1) : 0;
+            const taxaJustificadas = totalRegistros > 0 ? ((totalJustificadas / totalRegistros) * 100).toFixed(1) : 0;
+
+            document.getElementById('total-alunos').textContent = totalAlunos;
+            document.getElementById('presenca-media').textContent = presenciaMedia + '%';
+            document.getElementById('alunos-risco').textContent = totalEmRisco;
+            document.getElementById('taxa-justificadas').textContent = taxaJustificadas + '%';
+        }
+
+        function criarGraficos() {
+            const ctxTurmas = document.getElementById('chartTurmas').getContext('2d');
+            const ctxDistribuicao = document.getElementById('chartDistribuicao').getContext('2d');
+
+            const labelsAbas = [];
+            const dataPresencas = [];
+            const dataJustificadas = [];
+            const dataFaltas = [];
+            let totalP = 0, totalJ = 0, totalF = 0;
+
+            ABAS.forEach(aba => {
+                const stats = calcularEstatisticas(todosOsDados[aba] || []);
+
+                labelsAbas.push(aba);
+                dataPresencas.push(stats.totalPresencas);
+                dataJustificadas.push(stats.totalJustificadas);
+                dataFaltas.push(stats.totalFaltas);
+
+                totalP += stats.totalPresencas;
+                totalJ += stats.totalJustificadas;
+                totalF += stats.totalFaltas;
+            });
+
+            if (chartTurmas) chartTurmas.destroy();
+            chartTurmas = new Chart(ctxTurmas, {
+                type: 'bar',
+                data: {
+                    labels: labelsAbas,
+                    datasets: [
+                        { label: 'Presenças', data: dataPresencas, backgroundColor: '#90EE90' },
+                        { label: 'Justificadas', data: dataJustificadas, backgroundColor: '#FFD700' },
+                        { label: 'Faltas', data: dataFaltas, backgroundColor: '#FFB6C6' }
+                    ]
+                },
+                options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true } } }
+            });
+
+            if (chartDistribuicao) chartDistribuicao.destroy();
+            chartDistribuicao = new Chart(ctxDistribuicao, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Presenças', 'Justificadas', 'Faltas'],
+                    datasets: [{ data: [totalP, totalJ, totalF], backgroundColor: ['#90EE90', '#FFD700', '#FFB6C6'] }]
+                },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+        }
+
+        function criarTabs() {
+            const tabsContainer = document.getElementById('tabs');
+            tabsContainer.innerHTML = '';
+
+            ABAS.forEach((aba, index) => {
+                const btn = document.createElement('button');
+                btn.className = 'tab-btn' + (index === 0 ? ' active' : '');
+                btn.textContent = `Turma ${aba}`;
+                btn.onclick = () => selecionarTurma(aba, btn);
+                tabsContainer.appendChild(btn);
+            });
+        }
+
+        function selecionarTurma(aba, btn) {
+            abaAtual = aba;
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            criarTabelaAlunos(todosOsDados[aba] || []);
+        }
+
+        // Carregar dados ao iniciar
+        carregarDados();
+
+        // Atualizar a cada 5 minutos
+        setInterval(carregarDados, 5 * 60 * 1000);
+    </script>
+</body>
+</html>
